@@ -113,7 +113,7 @@ if __name__ == '__main__':
                 for line in lines:
                     rawdatafiles.append(line.replace('\n', ''))  # stripping line ending
         else:
-            rawdatafilesfiles.append(fn_data)
+            rawdatafiles.append(fn_data)
         
         for datafile in rawdatafiles:
             temparray = np.loadtxt(datafile)

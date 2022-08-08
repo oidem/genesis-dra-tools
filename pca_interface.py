@@ -3,6 +3,7 @@
 import sys, math, os
 import numpy as np
 import pandas as pd
+import scipy.stats
 import argparse
 import pyemma
 from matplotlib import pyplot as plt
@@ -18,9 +19,11 @@ if __name__ == '__main__':
     parser.add_argument('--trj', dest = 'type_trj', help = 'whether the datatype of your input data is trajectory', action = 'store_true')
     parser.add_argument('--feature', dest = 'feature', default = 'all', help = 'feature you want to add to your trajectory input(default: all)')
     parser.add_argument('--multiple', dest = 'is_multiple', help = 'Is your input file is a list of multiple trajcetory?', action = 'store_true')
+    parser.add_argument('--scale', dest = 'scaling', default = 'none', help = 'scaling method: none, zscore, max (default: none)')
     parser.add_argument('--skip_output', dest = 'skip_output', help = 'whether you want to skip the output of original embedded data', action = 'store_true')
     parser.add_argument('--ncomponent', dest = 'n_component', default = '-1', help = 'number of dimensions after processing by umap', type = int)
     parser.add_argument('--v', dest = 'verbose', help = 'verbosity', action = 'store_true')
+    parser.add_argument('--debug', dest = 'debug', help = 'debug option', action = 'store_true')
 
     args = parser.parse_args()
 
@@ -30,9 +33,11 @@ if __name__ == '__main__':
     trj         = args.type_trj
     feature     = args.feature
     is_multiple = args.is_multiple
+    scaling     = args.scaling
     skip_output = args.skip_output
     ncomp       = args.n_component
     verbose     = args.verbose
+    debug       = args.debug
 
     if (trj) and (top_file == ''):
         print('Error: you must input topology file by --top option, if the input datatype is "traj"!!!')
@@ -48,6 +53,7 @@ if __name__ == '__main__':
         print('    feature for VAMP: {}'.format(feature))
     else:
         print('    datatype of input: other')
+    print('    scaling method: {}'.format(scaling))
     if (skip_output):
         print('    skip output section?: yes')
     else:
@@ -116,6 +122,67 @@ if __name__ == '__main__':
         for i in range(len(data)):
             print('    ', i, ' ', data[i].shape)
 
+    if (debug):
+        print('')
+        print('before scaling, data[0][0,11] = ', data[0][0,11])
+
+    if (scaling == 'zscore'):
+        data_temp = np.concatenate(data)
+        if (debug):
+            print('')
+            print('shape of concatenated data: ', data_temp.shape)
+        data_scaled = scipy.stats.zscore(data_temp, ddof=1)
+
+        head = 0
+        tail = 0
+        for i in range(len(data)):
+            if (i == 0):
+                head = 0
+                tail = data[i].shape[0]
+            else:
+                head += tail
+                tail += data[i].shape[0]
+            data[i] = data_scaled[head:tail]
+
+    elif (scaling == 'max'):
+        data_temp = np.concatenate(data)
+        ndata = data_temp.shape[0]
+
+        if (debug):
+            print('')
+            print('shape of concatenated data: ', data_temp.shape)
+        data_max = np.max(data_temp, axis=0)
+
+        if (debug):
+            print('')
+            print('data_max[11]: ', data_max[11])
+
+
+        for i in range(ndim):
+            if (data_max[i] > 0.0):
+                for j in range(ndata):
+                    data_temp[j,i] /= data_max[i]
+
+        head = 0
+        tail = 0
+        for i in range(len(data)):
+            if (i == 0):
+                head = 0
+                tail = data[i].shape[0]
+            else:
+                head += tail
+                tail += data[i].shape[0]
+
+            data[i] = data_temp[head:tail]
+
+    if (debug):
+        print('')
+        print('shape of each input data:')
+        for i in range(len(data)):
+            print('    ', i, ' ', data[i].shape)
+        print('')
+        print('after scaling, data[0][0,11] = ', data[0][0,11])
+
     reducer = pyemma.coordinates.pca(data, ncomp)
     embedding = np.concatenate(reducer.get_output())
 
@@ -128,17 +195,18 @@ if __name__ == '__main__':
     if (ncomp == -1):
         ncomp = embedding.shape[1]
 
-    print('type of embedding: ', type(embedding))
-    print('shape of embedding: ', embedding.shape)
+    if (debug):
+        print('type of embedding: ', type(embedding))
+        print('shape of embedding: ', embedding.shape)
 
-    print('shape of eigvec: ', reducer.eigenvectors.shape)
-    print('shape of eigval: ', reducer.eigenvalues.shape)
-    print('shape of cumvar: ', reducer.cumvar.shape)
+        print('shape of eigvec: ', reducer.eigenvectors.shape)
+        print('shape of eigval: ', reducer.eigenvalues.shape)
+        print('shape of cumvar: ', reducer.cumvar.shape)
 
-    #print('eigval of 1st IC: ', reducer.eigenvalues[0])
-    #print('eigval of 2nd IC: ', reducer.eigenvalues[1])
-    print('eigenvector[0, 3]: ', reducer.eigenvectors[0, 3])
-    print('eigenvector[2, 3]: ', reducer.eigenvectors[2, 3])
+        #print('eigval of 1st IC: ', reducer.eigenvalues[0])
+        #print('eigval of 2nd IC: ', reducer.eigenvalues[1])
+        print('eigenvector[0, 3]: ', reducer.eigenvectors[0, 3])
+        print('eigenvector[2, 3]: ', reducer.eigenvectors[2, 3])
 
     if (not skip_output):
         fn_png = fn_out + '_plot.png'

@@ -1,6 +1,7 @@
 # program umap_interface.py
 
 import sys, math, os
+import scipy.stats
 import numpy as np
 import pandas as pd
 import argparse
@@ -20,6 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--trj', dest = 'type_trj', help = 'whether the datatype of your input data is trajectory', action = 'store_true')
     parser.add_argument('--feature', dest = 'feature', default = 'all', help = 'feature you want to add to your trajectory input(default: all)')
     parser.add_argument('--multiple', dest = 'is_multiple', help = 'Is your input file is a list of multiple trajcetory?', action = 'store_true')
+    parser.add_argument('--scale', dest = 'scaling', default = 'none', help = 'scaling method: none, zscore, max (default: none)')
     parser.add_argument('--skip_output', dest = 'skip_output', help = 'whether you want to skip the output of original embedded data', action = 'store_true')
     parser.add_argument('--ncomponent', dest = 'n_component', default = '2', help = 'number of dimensions after processing by umap', type = int)
     parser.add_argument('--neighbor', dest = 'n_neighbors', default = '15', help = 'n_neighbors of sklearn, which controls the balance between local and global structure', type = int)
@@ -29,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--split', dest = 'split_data', help = 'whether you want to split the data to reduce the computational cost', action = 'store_true')
     parser.add_argument('--seed', dest = 'random_seed', default = '-1', help = 'random seed for initialization of k-means analysis', type = int)
     parser.add_argument('--v', dest = 'verbose', help = 'verbosity', action = 'store_true')
+    parser.add_argument('--debug', dest = 'debug', help = 'debug option', action = 'store_true')
 
     args = parser.parse_args()
 
@@ -38,6 +41,7 @@ if __name__ == '__main__':
     trj         = args.type_trj
     feature     = args.feature
     is_multiple = args.is_multiple
+    scaling     = args.scaling
     skip_output = args.skip_output
     ncomp       = args.n_component
     neighbors   = args.n_neighbors
@@ -47,6 +51,7 @@ if __name__ == '__main__':
     split       = args.split_data
     seed        = args.random_seed
     verbose     = args.verbose
+    debug       = args.debug
 
     if (trj) and (top_file == ''):
         print('Error: you must input topology file by --top option, if the input datatype is "traj"!!!')
@@ -62,6 +67,7 @@ if __name__ == '__main__':
         print('    feature for VAMP: {}'.format(feature))
     else:
         print('    datatype of input: other')
+    print('    scaling method: {}'.format(scaling))
     if (skip_output):
         print('    skip output section?: yes')
     else:
@@ -144,6 +150,31 @@ if __name__ == '__main__':
 
     ndata = data_concatenated.shape[0]
 
+    if (debug):
+        print('')
+        print('before scaling, data[0,11] = ', data_concatenated[0,11])
+
+    data_scaled = np.zeros((ndata, ndim))
+    if (scaling == 'zscore'):
+        data_scaled = scipy.stats.zscore(data_concatenated, ddof=1)
+    elif (scaling == 'max'):
+        data_max = np.max(data_concatenated, axis=0)
+        for i in range(ndim):
+            if (data_max[i] > 0.0):
+                for j in range(ndata):
+                    data_scaled[j,i] = data_concatenated[j,i] / data_max[i]
+            else:
+                for j in range(ndata):
+                    data_scaled[j,i] = data_concatenated[j,i]
+    else:
+        data_scaled = data_concatenated
+
+    if (debug):
+        print('')
+        print('shape of input data: ', data_scaled.shape)
+        print('')
+        print('after scaling, data[0][0,11] = ', data_scaled[0,11])
+
     nlearn = ndata
     if (split):
         nlearn = int(ndata / 2)
@@ -166,7 +197,7 @@ if __name__ == '__main__':
 
     reducer = umap.UMAP(n_neighbors = neighbors, n_components = ncomp, min_dist = mindist, spread = spread_, metric = metric_, random_state = seed)
 
-    embedding = reducer.fit(data_concatenated)
+    embedding = reducer.fit(data_scaled)
 
     if (verbose):
         print('')

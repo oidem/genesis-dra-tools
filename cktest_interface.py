@@ -174,7 +174,7 @@ if __name__ == '__main__':
 
         fig, axes = plt.subplots(int(row), int(col), figsize=(xsize, ysize))
         for i, ax in enumerate(axes.flat):
-            fig, ax = pyemma.plots.plot_contour(*rawdata_concatenated[:, :2].T, eigvec[dtraj_concatenated, i + 1], cmap='PiYG', cbar_label='{}. right eigenvector'.format(i + 2), mask=True)
+            fig, ax = pyemma.plots.plot_contour(*rawdata_concatenated.T, eigvec[dtraj_concatenated, i + 1], cmap='PiYG', cbar_label='{}. right eigenvector'.format(i + 2), mask=True)
             ax.scatter(*cluster.clustercenters.T, s=15, c='C1')
             ax.set_xlabel('1st component')
             ax.set_ylabel('2nd component')
